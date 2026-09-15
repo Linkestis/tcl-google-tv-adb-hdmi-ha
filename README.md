@@ -1,33 +1,60 @@
-# 🚀 TCL Google TV: Instant HDMI Input Switching via ADB (Home Assistant)
+# TCL Google TV HDMI input switching via ADB and Home Assistant
 
-Tired of using slow, unreliable `input keyevent` commands (like D-pad arrows and Enter) to switch HDMI inputs on your TCL TV? After a deep dive into `dumpsys tv_input` logs, I've discovered the direct **Android Intent** commands to teleport your TV to any HDMI port instantly. No menus, no delays, no missed clicks.
+Switch to a specific HDMI input on a tested TCL Google TV by launching its
+`TvPassThroughService` input URI. This avoids navigating the on-screen input
+menu with remote key events. It uses the TV's existing Android TV system
+components; no root, custom firmware, or removal of system packages is needed.
 
-## 🏁 Why this is better:
-* **Lightning Fast:** Switches inputs in milliseconds.
-* **100% Reliable:** Doesn't depend on the current menu state or UI focus.
-* **Direct Hardware Call:** Triggers the specific hardware port mapping natively in Android TV.
+## Tested on
 
-## 🚀 The "Magic" Command
-Instead of navigating menus, use the `am start` command to target the `TvPassThroughService` directly:
+**TCL 65Q7C-UK / Google TV / Android 14.** The following HDMI hardware IDs
+were confirmed on this TV. They may differ on other TCL models or firmware
+versions; discover and verify your TV's IDs before using them.
+
+| HDMI input | Tested hardware ID |
+| --- | --- |
+| HDMI 1 | `HW15` |
+| HDMI 2 | `HW16` |
+| HDMI 3 | `HW17` |
+| HDMI 4 | `HW18` |
+
+## ADB command
+
+The URI below is the same TCL `TvPassThroughService` intent used by the
+original guide. Replace `[ID]` with a hardware ID confirmed on your TV:
 
 ```bash
 am start -a android.intent.action.VIEW -d content://android.media.tv/passthrough/com.tcl.tvinput%2F.TvPassThroughService%2FHW[ID]
 ```
 
-## 📍 Verified Port Mapping (The Hardware IDs)
-Based on my hardware analysis, here is the exact mapping for TCL TV models. The secret is knowing which `HW` ID corresponds to which physical HDMI port:
+For example, the tested HDMI 4 command is:
 
-| Physical Port | Hardware ID | ADB Command String Segment |
-| :--- | :--- | :--- |
-| **HDMI 1** | HW15 | `.../.TvPassThroughService%2FHW15` |
-| **HDMI 2** | HW16 | `.../.TvPassThroughService%2FHW16` |
-| **HDMI 3** | HW17 | `.../.TvPassThroughService%2FHW17` |
-| **HDMI 4** | **HW18** | `.../.TvPassThroughService%2FHW18` |
+```bash
+am start -a android.intent.action.VIEW -d content://android.media.tv/passthrough/com.tcl.tvinput%2F.TvPassThroughService%2FHW18
+```
 
-## 🏠 Home Assistant Integration Example
-You can use this directly in your scripts or automations using the standard Android TV integration. 
+## Find and verify your TV inputs
 
-*Note: For the best performance and zero delay, ensure your HA is connected directly to the TV via the internal Python ADB, bypassing any external ADB servers.*
+Run these read-only commands through an authorized ADB shell or Home
+Assistant's `androidtv.adb_command` action:
+
+```bash
+dumpsys tv_input
+getprop sys.tcl.inputid
+```
+
+Use `dumpsys tv_input` to identify the TV input services and hardware IDs
+exposed by your firmware. After selecting an input, use
+`getprop sys.tcl.inputid` to check the TV's reported current input. Confirm
+the result against the actual HDMI port; do not assume the mapping above is
+universal.
+
+## Home Assistant example
+
+With the Home Assistant Android Debug Bridge integration connected to the TV,
+use `androidtv.adb_command` in a script or automation. This example selects
+HDMI 4 on the tested TV; replace the entity ID and verified hardware ID for
+your setup.
 
 ```yaml
 action: androidtv.adb_command
@@ -37,15 +64,21 @@ data:
   command: "am start -a android.intent.action.VIEW -d content://android.media.tv/passthrough/com.tcl.tvinput%2F.TvPassThroughService%2FHW18"
 ```
 
----
+This is an input-selection command, not physical feedback. Check the reported
+input and the TV screen if your automation needs confirmation.
 
-### ☕ Support my work!
-This mapping took over **9898777 hours** :) of reverse engineering and dozens of Home Assistant restarts to perfect. If this guide saved you from the same frustration, feel free to support my work!
-**Every small tip is appreciated!**
+## Troubleshooting
 
-* **Revolut Me:** [revolut.me/mariannud](https://revolut.me/mariannud)
+- **ADB cannot connect:** Check that ADB debugging is enabled on the TV, the
+  pairing/authorization prompt was accepted, and the TV address and ADB port
+  configured in Home Assistant are correct. Recheck connectivity after a TV
+  firmware update.
+- **Wrong input or no switch:** Inspect `dumpsys tv_input` for the IDs on your
+  firmware. Verify the selected input with `getprop sys.tcl.inputid` and the
+  physical HDMI port. Do not copy the `HW15`-`HW18` mapping to an untested TV.
 
-Thank you!
+## Support
 
----
-**Contributed by:** MA-Linkestis (2026)
+[Support this work on Revolut](https://revolut.me/mariannud)
+
+Contributed by MA-Linkestis (2026).
